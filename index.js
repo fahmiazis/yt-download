@@ -5,7 +5,7 @@ const path = require('path');
 const archiver = require('archiver');
 
 const app = express();
-const port = 3002;
+const port = process.env.PORT || 3002;
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
