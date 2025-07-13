@@ -132,9 +132,9 @@ app.get('/download-single', async (req, res) => {
     // let lines = titleStdout.split('\n').map(l => l.trim()).filter(l => l);
     let safeTitle = title
     // let safeTitle = lines[0] || `video-${Date.now()}`;
-    // safeTitle = safeTitle
-    //   .replace(/[\/\\?%*:|"<>]/g, '-')   // hilangin karakter ilegal
-    //   .substring(0, 100);                 // batasi panjang nama file
+    safeTitle = safeTitle
+      .replace(/[\/\\?%*:|"<>]/g, '-')   // hilangin karakter ilegal
+      .substring(0, 500);                 // batasi panjang nama file
 
     const filename = `${safeTitle}.mp4`;
     const filepath = path.join(__dirname, filename);
