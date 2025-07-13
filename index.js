@@ -118,6 +118,46 @@ app.get('/get-playlist-items', async (req, res) => {
   }
 });
 
+app.get('/download-single', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'Missing URL' });
+
+  try {
+    console.log("Downloading single video:", url);
+
+    const today = new Date();
+    const stamp = `${today.getFullYear()}${(today.getMonth()+1+"").padStart(2,"0")}${(today.getDate()+"").padStart(2,"0")}_${today.getTime()}`;
+    const filename = `video-${stamp}.mp4`;
+    const filepath = path.join(__dirname, filename);
+
+    await runYtdlp(url, [
+      "--output", filepath,
+      "--format", "best[height<=1080]/best",
+      "--merge-output-format", "mp4",
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+      "--no-mtime"
+    ]);
+
+    console.log("Download done:", filepath);
+
+    res.download(filepath, (err) => {
+      if (!err) {
+        try { fs.unlinkSync(filepath); } catch {}
+        console.log("Cleaned up:", filepath);
+      } else {
+        console.error("Download stream error:", err);
+      }
+    });
+
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({
+      error: 'Failed to download single video',
+      err
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
