@@ -1,10 +1,12 @@
 const express = require('express');
+const cors = require('cors')
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 const { spawn } = require('child_process');
 
 const app = express();
+app.use(cors())
 const port = process.env.PORT || 3002;
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
