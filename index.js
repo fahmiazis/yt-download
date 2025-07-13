@@ -164,6 +164,65 @@ app.get('/download-single', async (req, res) => {
   }
 });
 
+app.get('/download-video', async (req, res) => {
+  const { url, title } = req.query;
+  if (!url || !title) return res.status(400).json({ error: 'Missing url or title' });
+
+  const filename = `${title}.mp4`;
+  try {
+    await runYtdlp(url, [
+      "--output", filename,
+      "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]",
+      "--merge-output-format", "mp4",
+      "--no-mtime",
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    ]);
+
+    await delay(2000);
+
+    if (!fs.existsSync(path.join(__dirname, filename))) {
+      return res.status(500).json({ error: 'Video file not found' });
+    }
+
+    res.download(path.join(__dirname, filename), filename, (err) => {
+      if (!err) fs.unlinkSync(path.join(__dirname, filename));
+    });
+
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: 'Failed to download video', err });
+  }
+});
+
+app.get('/download-audio', async (req, res) => {
+  const { url, title } = req.query;
+  if (!url || !title) return res.status(400).json({ error: 'Missing url or title' });
+
+  const filename = `${title}.m4a`;
+  try {
+    await runYtdlp(url, [
+      "--output", filename,
+      "-f", "bestaudio[ext=m4a]/bestaudio",
+      "--no-mtime",
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    ]);
+
+    await delay(2000);
+
+    if (!fs.existsSync(path.join(__dirname, filename))) {
+      return res.status(500).json({ error: 'Audio file not found' });
+    }
+
+    res.download(path.join(__dirname, filename), filename, (err) => {
+      if (!err) fs.unlinkSync(path.join(__dirname, filename));
+    });
+
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: 'Failed to download audio', err });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
