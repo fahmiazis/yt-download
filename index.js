@@ -122,24 +122,16 @@ app.get('/get-playlist-items', async (req, res) => {
 
 app.get('/download-single', async (req, res) => {
   const { url, title } = req.query;
-  if (!url) return res.status(400).json({ error: 'Missing URL' });
+  if (!url || !title) {
+    return res.status(400).json({ error: 'Missing URL or title' });
+  }
+
+  // buat nama safe untuk rename
+  const safeTitle = title.replace(/[<>:"\/\\|?*]/g, '_');
+  const finalName = `${safeTitle}.mp4`;
 
   try {
-    // console.log("Get title for single video:", url);
-
-    // Ambil judul video
-    // const { stdout: titleStdout } = await runYtdlp(url, ["--get-title"]);
-    // let lines = titleStdout.split('\n').map(l => l.trim()).filter(l => l);
-    let safeTitle = title
-    // let safeTitle = lines[0] || `video-${Date.now()}`;
-    safeTitle = safeTitle
-      .replace(/[\/\\?%*:|"<>]/g, '-')   // hilangin karakter ilegal
-      .substring(0, 500);                 // batasi panjang nama file
-
-    const filename = `${safeTitle}.mp4`;
-    const filepath = path.join(__dirname, filename);
-
-    console.log(`Downloadings "${safeTitle}" as file: ${filename}`);
+    console.log("Downloading:", url);
 
     const formatSelector = 
       "(bestvideo[height<=1080][height>=720])[ext=mp4]+bestaudio[ext=m4a]" +
@@ -147,38 +139,40 @@ app.get('/download-single', async (req, res) => {
       "/(bestvideo[height<=480])[ext=mp4]+bestaudio[ext=m4a]" +
       "/best";
 
-    // Download video
+    // PENTING: pakai template, bukan fix file
     await runYtdlp(url, [
-      "--output", filepath,
-      // "--format", "best[height=1080]/best",
+      "--output", "%(title)s.%(ext)s",
       "-f", formatSelector,
       "--merge-output-format", "mp4",
       "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
       "--no-mtime"
     ]);
 
-    console.log("Download done:", filepath);
+    // cari file yang baru saja di-download
+    const allFiles = fs.readdirSync(__dirname);
+    const downloadedFile = allFiles.find(f => f.endsWith('.mp4'));
 
-    // Kirim file ke client lalu hapus
-    res.download(filepath, filename, (err) => {
+    if (!downloadedFile) {
+      return res.status(500).json({
+        error: 'Download completed but file not found',
+        debug: { allFiles }
+      });
+    }
+
+    // rename ke nama yang dikirim frontend
+    const oldPath = path.join(__dirname, downloadedFile);
+    const newPath = path.join(__dirname, finalName);
+    fs.renameSync(oldPath, newPath);
+
+    res.download(newPath, finalName, (err) => {
       if (!err) {
-        try {
-          fs.unlinkSync(filepath);
-          console.log("File deleted:", filepath);
-        } catch (e) {
-          console.error("Error deleting file:", e);
-        }
-      } else {
-        console.error("Error sending file:", err);
+        fs.unlinkSync(newPath);
       }
     });
 
   } catch (err) {
-    console.error("Error:", err);
-    res.status(500).json({
-      error: 'Failed to download single video',
-      err
-    });
+    console.error("Failed to download:", err);
+    res.status(500).json({ error: 'Download or rename failed', err });
   }
 });
 
