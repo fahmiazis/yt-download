@@ -144,7 +144,7 @@ app.get('/download-single', async (req, res) => {
     // Download video
     await runYtdlp(url, [
       "--output", filepath,
-      "--format", "best[height>=1080]/best",
+      "--format", "best[height=1080]/best",
       "--merge-output-format", "mp4",
       "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
       "--no-mtime"
