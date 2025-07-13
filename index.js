@@ -134,9 +134,9 @@ app.get('/download-single', async (req, res) => {
     console.log("Downloading:", url);
 
     const formatSelector = 
-      "(bestvideo[height<=1080][height>=720])[ext=mp4]+bestaudio[ext=m4a]" +
-      "/(bestvideo[height<=720][height>=480])[ext=mp4]+bestaudio[ext=m4a]" +
-      "/(bestvideo[height<=480])[ext=mp4]+bestaudio[ext=m4a]" +
+      "(bestvideo[height<=1080][height>=720])+bestaudio" +
+      "/(bestvideo[height<=720][height>=480])+bestaudio" +
+      "/(bestvideo[height<=480])+bestaudio" +
       "/best";
 
     // PENTING: pakai template, bukan fix file
