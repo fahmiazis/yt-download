@@ -125,19 +125,20 @@ app.get('/download-single', async (req, res) => {
   try {
     console.log("Get title for single video:", url);
 
-    // ambil judul video
+    // Ambil judul video
     const { stdout: titleStdout } = await runYtdlp(url, ["--get-title"]);
-    let safeTitle = titleStdout.trim()
-      .replace(/[\/\\?%*:|"<>]/g, '-')   // ganti karakter ilegal
-      .substring(0, 100);                 // limit panjang nama file
-    if (!safeTitle) safeTitle = `video-${Date.now()}`;
+    let lines = titleStdout.split('\n').map(l => l.trim()).filter(l => l);
+    let safeTitle = lines[0] || `video-${Date.now()}`;
+    safeTitle = safeTitle
+      .replace(/[\/\\?%*:|"<>]/g, '-')   // hilangin karakter ilegal
+      .substring(0, 100);                 // batasi panjang nama file
 
     const filename = `${safeTitle}.mp4`;
     const filepath = path.join(__dirname, filename);
 
-    console.log("Downloading as:", filename);
+    console.log(`Downloading "${safeTitle}" as file: ${filename}`);
 
-    // download video
+    // Download video
     await runYtdlp(url, [
       "--output", filepath,
       "--format", "best[height<=1080]/best",
@@ -148,13 +149,17 @@ app.get('/download-single', async (req, res) => {
 
     console.log("Download done:", filepath);
 
-    // langsung download ke user & hapus file
+    // Kirim file ke client lalu hapus
     res.download(filepath, filename, (err) => {
       if (!err) {
-        try { fs.unlinkSync(filepath); } catch {}
-        console.log("Cleaned up:", filepath);
+        try {
+          fs.unlinkSync(filepath);
+          console.log("File deleted:", filepath);
+        } catch (e) {
+          console.error("Error deleting file:", e);
+        }
       } else {
-        console.error("Download stream error:", err);
+        console.error("Error sending file:", err);
       }
     });
 
