@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "postinstall": "curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ./yt-dlp && chmod +x ./yt-dlp"
+    "postinstall": "curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o ./yt-dlp && chmod +x ./yt-dlp"
   },
   "keywords": [],
   "author": "",
