@@ -123,13 +123,21 @@ app.get('/download-single', async (req, res) => {
   if (!url) return res.status(400).json({ error: 'Missing URL' });
 
   try {
-    console.log("Downloading single video:", url);
+    console.log("Get title for single video:", url);
 
-    const today = new Date();
-    const stamp = `${today.getFullYear()}${(today.getMonth()+1+"").padStart(2,"0")}${(today.getDate()+"").padStart(2,"0")}_${today.getTime()}`;
-    const filename = `video-${stamp}.mp4`;
+    // ambil judul
+    const { stdout: titleStdout } = await runYtdlp(url, ["--get-title"]);
+    let safeTitle = titleStdout.trim()
+      .replace(/[\/\\?%*:|"<>]/g, '-')   // ganti karakter ilegal di nama file
+      .substring(0, 100);                 // limit panjang nama file
+    if (!safeTitle) safeTitle = `video-${Date.now()}`;
+
+    const filename = `${safeTitle}.mp4`;
     const filepath = path.join(__dirname, filename);
 
+    console.log("Downloading as:", filename);
+
+    // download
     await runYtdlp(url, [
       "--output", filepath,
       "--format", "best[height<=1080]/best",
