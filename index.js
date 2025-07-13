@@ -64,11 +64,19 @@ app.get('/convert', async (req, res) => {
 
     await delay(5000);
 
-    const files = fs.readdirSync(__dirname).filter(f => f.match(/^\d{2} - .*\.mp4$/));
-    console.log("Files to zip:", files);
+    const allFiles = fs.readdirSync(__dirname);
+    const files = allFiles.filter(f => f.match(/^\d{2} - .*\.mp4$/));
+
+    console.log("CWD:", process.cwd());
+    console.log("__dirname:", __dirname);
+    console.log("All files in dir:", allFiles);
+    console.log("Filtered files:", files);
 
     if (files.length === 0) {
-      return res.status(500).json({ error: 'Download failed or no files found' });
+      return res.status(500).json({ 
+        error: 'Download failed or no files found',
+        debug: { allFiles }
+      });
     }
 
     await zipFiles(files, zipPath);
@@ -84,14 +92,14 @@ app.get('/convert', async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Error:", err);
-    res.status(500).json({ 
-      error: 'Failed to download or zip files', 
-      err 
-    });
-  }
-});
+      console.error("Error:", err);
+      res.status(500).json({ 
+        error: 'Failed to download or zip files', 
+        err 
+      });
+    }
+  });;
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
+  app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
+  });
