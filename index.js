@@ -9,6 +9,22 @@ const port = process.env.PORT || 3002;
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+function runYoutubedl(url, args=[]) {
+  return new Promise((resolve, reject) => {
+    const proc = youtubedl(url, args);
+    let stderr = '';
+    let stdout = '';
+
+    proc.stdout.on('data', data => stdout += data);
+    proc.stderr.on('data', data => stderr += data);
+
+    proc.on('close', code => {
+      if (code === 0) resolve({ stdout, stderr });
+      else reject({ stdout, stderr, code });
+    });
+  });
+}
+
 function zipFiles(files, zipPath) {
   return new Promise((resolve, reject) => {
     const output = fs.createWriteStream(zipPath);
@@ -39,17 +55,15 @@ app.get('/convert', async (req, res) => {
     const zipName = `Playlist-${dateStr}.zip`;
     const zipPath = path.join(__dirname, zipName);
 
-    // Download pakai .raw (no python needed)
-    await youtubedl(url, [
+    await runYoutubedl(url, [
       "--output", "%(playlist_index)02d - %(title)s.%(ext)s",
       "--format", "best[height<=480]/best",
       "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
       "--no-mtime"
     ]);
 
-    await delay(5000); // kasih waktu flush disk
+    await delay(5000);
 
-    // Ambil semua file pattern playlist
     const files = fs.readdirSync(__dirname).filter(f => f.match(/^\d{2} - .*\.mp4$/));
     console.log("Files to zip:", files);
 
@@ -57,15 +71,12 @@ app.get('/convert', async (req, res) => {
       return res.status(500).json({ error: 'Download failed or no files found' });
     }
 
-    // Zip file
     await zipFiles(files, zipPath);
 
-    // Hapus file video setelah zip
     for (const file of files) {
       fs.unlinkSync(path.join(__dirname, file));
     }
 
-    // Download zip & auto delete
     res.download(zipPath, zipName, (err) => {
       if (!err) {
         fs.unlinkSync(zipPath);
