@@ -139,7 +139,7 @@ app.get('/download-single', async (req, res) => {
     const filename = `${safeTitle}.mp4`;
     const filepath = path.join(__dirname, filename);
 
-    console.log(`Downloading "${safeTitle}" as file: ${filename}`);
+    console.log(`Downloadings "${safeTitle}" as file: ${filename}`);
 
     const formatSelector = 
       "(bestvideo[height<=1080][height>=720])[ext=mp4]+bestaudio[ext=m4a]" +
