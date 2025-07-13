@@ -11,46 +11,17 @@ const port = process.env.PORT || 3002;
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function runYtdlp(url) {
+function runYtdlp(url, args=[]) {
   return new Promise((resolve, reject) => {
-    // bikin chain fallback format
-    const formatSelector = 
-      "(bestvideo[height<=1080][height>=720])[ext=mp4]+bestaudio[ext=m4a]" +
-      "/(bestvideo[height<=720][height>=480])[ext=mp4]+bestaudio[ext=m4a]" +
-      "/(bestvideo[height<=480])[ext=mp4]+bestaudio[ext=m4a]" +
-      "/best";
+    const proc = spawn('./yt-dlp', [url, ...args]);
+    let stderr = '', stdout = '';
 
-    const args = [
-      url,
-      "-f", formatSelector,
-      "--merge-output-format", "mp4",
-      "--print", "%(title)s - %(resolution)s",
-      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-      "--no-mtime"
-    ];
-
-    console.log("Running yt-dlp with args:", args.join(" "));
-
-    const proc = spawn('./yt-dlp', args);
-    let stdout = '', stderr = '';
-
-    proc.stdout.on('data', data => {
-      stdout += data;
-      console.log("yt-dlp:", data.toString());
-    });
-    proc.stderr.on('data', data => {
-      stderr += data;
-      console.error("yt-dlp err:", data.toString());
-    });
+    proc.stdout.on('data', data => stdout += data);
+    proc.stderr.on('data', data => stderr += data);
 
     proc.on('close', code => {
-      if (code === 0) {
-        console.log("yt-dlp done with code:", code);
-        resolve({ stdout, stderr });
-      } else {
-        console.error("yt-dlp failed with code:", code);
-        reject({ code, stdout, stderr });
-      }
+      if (code === 0) resolve({ stdout, stderr });
+      else reject({ code, stdout, stderr });
     });
   });
 }
@@ -151,99 +122,65 @@ app.get('/get-playlist-items', async (req, res) => {
 
 app.get('/download-single', async (req, res) => {
   const { url, title } = req.query;
-  if (!url || !title) {
-    return res.status(400).json({ error: 'Missing URL or title' });
-  }
+  if (!url) return res.status(400).json({ error: 'Missing URL' });
 
   try {
-    console.log("Starting download for:", url);
+    // console.log("Get title for single video:", url);
 
-    await runYtdlp(url);
+    // Ambil judul video
+    // const { stdout: titleStdout } = await runYtdlp(url, ["--get-title"]);
+    // let lines = titleStdout.split('\n').map(l => l.trim()).filter(l => l);
+    let safeTitle = title
+    // let safeTitle = lines[0] || `video-${Date.now()}`;
+    // safeTitle = safeTitle
+    //   .replace(/[\/\\?%*:|"<>]/g, '-')   // hilangin karakter ilegal
+    //   .substring(0, 100);                 // batasi panjang nama file
 
-    // cari file mp4 yg baru
-    const allFiles = fs.readdirSync(__dirname);
-    const file = allFiles.find(f => f.endsWith('.mp4'));
+    const filename = `${safeTitle}.mp4`;
+    const filepath = path.join(__dirname, filename);
 
-    if (!file) {
-      return res.status(500).json({ 
-        error: 'Download failed or no mp4 found',
-        debug: { allFiles }
-      });
-    }
+    console.log(`Downloading "${safeTitle}" as file: ${filename}`);
 
-    // rename file ke title dari frontend
-    const safeTitle = title.replace(/[<>:"\/\\|?*]/g, '_'); // biar aman nama file
-    const finalName = `${safeTitle}.mp4`;
-    const oldPath = path.join(__dirname, file);
-    const newPath = path.join(__dirname, finalName);
+    const formatSelector = 
+      "(bestvideo[height<=1080][height>=720])[ext=mp4]+bestaudio[ext=m4a]" +
+      "/(bestvideo[height<=720][height>=480])[ext=mp4]+bestaudio[ext=m4a]" +
+      "/(bestvideo[height<=480])[ext=mp4]+bestaudio[ext=m4a]" +
+      "/best";
 
-    fs.renameSync(oldPath, newPath);
+    // Download video
+    await runYtdlp(url, [
+      "--output", filepath,
+      // "--format", "best[height=1080]/best",
+      "-f", formatSelector,
+      "--merge-output-format", "mp4",
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+      "--no-mtime"
+    ]);
 
-    res.download(newPath, finalName, (err) => {
+    console.log("Download done:", filepath);
+
+    // Kirim file ke client lalu hapus
+    res.download(filepath, filename, (err) => {
       if (!err) {
-        fs.unlinkSync(newPath);
+        try {
+          fs.unlinkSync(filepath);
+          console.log("File deleted:", filepath);
+        } catch (e) {
+          console.error("Error deleting file:", e);
+        }
+      } else {
+        console.error("Error sending file:", err);
       }
     });
 
   } catch (err) {
-    console.error("Download failed:", err);
-    res.status(500).json({ error: 'Failed to download video', err });
+    console.error("Error:", err);
+    res.status(500).json({
+      error: 'Failed to download single video',
+      err
+    });
   }
 });
-// app.get('/download-single', async (req, res) => {
-//   const { url, title } = req.query;
-//   if (!url) return res.status(400).json({ error: 'Missing URL' });
-
-//   try {
-//     // console.log("Get title for single video:", url);
-
-//     // Ambil judul video
-//     // const { stdout: titleStdout } = await runYtdlp(url, ["--get-title"]);
-//     // let lines = titleStdout.split('\n').map(l => l.trim()).filter(l => l);
-//     let safeTitle = title
-//     // let safeTitle = lines[0] || `video-${Date.now()}`;
-//     // safeTitle = safeTitle
-//     //   .replace(/[\/\\?%*:|"<>]/g, '-')   // hilangin karakter ilegal
-//     //   .substring(0, 100);                 // batasi panjang nama file
-
-//     const filename = `${safeTitle}.mp4`;
-//     const filepath = path.join(__dirname, filename);
-
-//     console.log(`Downloading "${safeTitle}" as file: ${filename}`);
-
-//     // Download video
-//     await runYtdlp(url, [
-//       "--output", filepath,
-//       "--format", "best[height=1080]/best",
-//       "--merge-output-format", "mp4",
-//       "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-//       "--no-mtime"
-//     ]);
-
-//     console.log("Download done:", filepath);
-
-//     // Kirim file ke client lalu hapus
-//     res.download(filepath, filename, (err) => {
-//       if (!err) {
-//         try {
-//           fs.unlinkSync(filepath);
-//           console.log("File deleted:", filepath);
-//         } catch (e) {
-//           console.error("Error deleting file:", e);
-//         }
-//       } else {
-//         console.error("Error sending file:", err);
-//       }
-//     });
-
-//   } catch (err) {
-//     console.error("Error:", err);
-//     res.status(500).json({
-//       error: 'Failed to download single video',
-//       err
-//     });
-//   }
-// });
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
