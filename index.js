@@ -133,11 +133,7 @@ app.get('/download-single', async (req, res) => {
   try {
     console.log("Downloading:", url);
 
-    const formatSelector = 
-      "best[height<=1080][height>=720]"
-      "/best[height<=720][height>=480]"
-      "/best[height<=480]"
-      "/best";
+    const formatSelector = "bestvideo[height<=1080][height>=720][vcodec~='^((?!vp9).)$']+bestaudio[acodec~='^((?!opus).)$']/best[height<=1080][height>=720]/best[height<=720][height>=480]/best"
 
     // PENTING: pakai template, bukan fix file
     await runYtdlp(url, [
