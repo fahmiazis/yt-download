@@ -56,7 +56,7 @@ app.get('/convert', async (req, res) => {
 
     await runYtdlp(url, [
       "--output", "%(playlist_index)02d - %(title)s.%(ext)s",
-      "--format", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
+      "--format", "bestvideo[height<=1080][height>=480]+bestaudio/best[height<=1080][height>=480]/best",
       "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
       "--no-mtime"
     ]);
