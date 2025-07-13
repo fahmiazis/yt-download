@@ -122,53 +122,45 @@ app.get('/get-playlist-items', async (req, res) => {
 
 app.get('/download-single', async (req, res) => {
   const { url, title } = req.query;
-  if (!url || !title) {
-    return res.status(400).json({ error: 'Missing URL or title' });
-  }
-
-  // buat nama safe untuk rename
-  const safeTitle = title.replace(/[<>:"\/\\|?*]/g, '_');
-  const finalName = `${safeTitle}.mp4`;
+  if (!url || !title) return res.status(400).json({ error: 'Missing url or title' });
 
   try {
-    console.log("Downloading:", url);
+    console.log("Downloading:", title);
 
-    const formatSelector = "bestvideo[height<=1080][height>=720][vcodec~='^((?!vp9).)$']+bestaudio[acodec~='^((?!opus).)$']/best[height<=1080][height>=720]/best[height<=720][height>=480]/best"
+    const formatSelector = "bestvideo[height<=1080][height>=720]+bestaudio/best[height<=720][height>=480]/best";
 
-    // PENTING: pakai template, bukan fix file
     await runYtdlp(url, [
-      "--output", "%(title)s.%(ext)s",
+      "--output", `${title}.%(ext)s`,
       "-f", formatSelector,
-      "--merge-output-format", "mp4",
       "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
       "--no-mtime"
     ]);
 
-    // cari file yang baru saja di-download
+    await delay(1000);
+
+    // cek file apa yg barusan dibuat
     const allFiles = fs.readdirSync(__dirname);
-    const downloadedFile = allFiles.find(f => f.endsWith('.mp4'));
+    const downloadedFile = allFiles.find(f => f.startsWith(title));
+    console.log("Files:", allFiles, "Picked:", downloadedFile);
 
     if (!downloadedFile) {
       return res.status(500).json({
-        error: 'Download completed but file not found',
+        error: 'Download failed or no files found',
         debug: { allFiles }
       });
     }
 
-    // rename ke nama yang dikirim frontend
-    const oldPath = path.join(__dirname, downloadedFile);
-    const newPath = path.join(__dirname, finalName);
-    fs.renameSync(oldPath, newPath);
+    const filePath = path.join(__dirname, downloadedFile);
 
-    res.download(newPath, finalName, (err) => {
+    res.download(filePath, downloadedFile, (err) => {
       if (!err) {
-        fs.unlinkSync(newPath);
+        fs.unlinkSync(filePath);
       }
     });
 
   } catch (err) {
-    console.error("Failed to download:", err);
-    res.status(500).json({ error: 'Download or rename failed', err });
+    console.error("Error:", err);
+    res.status(500).json({ error: 'Failed to download video', err });
   }
 });
 
