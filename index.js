@@ -119,19 +119,20 @@ app.get('/get-playlist-items', async (req, res) => {
 });
 
 app.get('/download-single', async (req, res) => {
-  const { url } = req.query;
+  const { url, title } = req.query;
   if (!url) return res.status(400).json({ error: 'Missing URL' });
 
   try {
-    console.log("Get title for single video:", url);
+    // console.log("Get title for single video:", url);
 
     // Ambil judul video
-    const { stdout: titleStdout } = await runYtdlp(url, ["--get-title"]);
-    let lines = titleStdout.split('\n').map(l => l.trim()).filter(l => l);
-    let safeTitle = lines[0] || `video-${Date.now()}`;
-    safeTitle = safeTitle
-      .replace(/[\/\\?%*:|"<>]/g, '-')   // hilangin karakter ilegal
-      .substring(0, 100);                 // batasi panjang nama file
+    // const { stdout: titleStdout } = await runYtdlp(url, ["--get-title"]);
+    // let lines = titleStdout.split('\n').map(l => l.trim()).filter(l => l);
+    let safeTitle = title
+    // let safeTitle = lines[0] || `video-${Date.now()}`;
+    // safeTitle = safeTitle
+    //   .replace(/[\/\\?%*:|"<>]/g, '-')   // hilangin karakter ilegal
+    //   .substring(0, 100);                 // batasi panjang nama file
 
     const filename = `${safeTitle}.mp4`;
     const filepath = path.join(__dirname, filename);
