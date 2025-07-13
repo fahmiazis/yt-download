@@ -9,32 +9,22 @@ const port = process.env.PORT || 3002;
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-function zipFolder(source, out) {
+function zipFiles(files, zipPath) {
   return new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(zipPath);
     const archive = archiver('zip', { zlib: { level: 9 }});
-    const stream = fs.createWriteStream(out);
 
-    archive.directory(source, false)
-      .on('error', err => reject(err))
-      .pipe(stream);
+    output.on('close', () => resolve());
+    archive.on('error', err => reject(err));
 
-    stream.on('close', () => resolve());
+    archive.pipe(output);
+
+    for (const file of files) {
+      archive.file(path.join(__dirname, file), { name: file });
+    }
+
     archive.finalize();
   });
-}
-
-function deleteFolderRecursive(folderPath) {
-  if (fs.existsSync(folderPath)) {
-    fs.readdirSync(folderPath).forEach((file) => {
-      const curPath = path.join(folderPath, file);
-      if (fs.lstatSync(curPath).isDirectory()) {
-        deleteFolderRecursive(curPath);
-      } else {
-        fs.unlinkSync(curPath);
-      }
-    });
-    fs.rmdirSync(folderPath);
-  }
 }
 
 app.get('/convert', async (req, res) => {
@@ -46,9 +36,10 @@ app.get('/convert', async (req, res) => {
 
     const today = new Date();
     const dateStr = `${today.getFullYear()}${(today.getMonth()+1+"").padStart(2,"0")}${(today.getDate()+"").padStart(2,"0")}`;
-    const playlistTitle = `Playlist-${dateStr}`;
-    const folderPath = path.join(__dirname, playlistTitle);
+    const zipName = `Playlist-${dateStr}.zip`;
+    const zipPath = path.join(__dirname, zipName);
 
+    // Download langsung ke root
     await youtubedl(url, {
       output: '%(playlist_index)02d - %(title)s.%(ext)s',
       format: 'best[height<=480]/best',
@@ -56,42 +47,35 @@ app.get('/convert', async (req, res) => {
       noMtime: true
     });
 
-    await delay(2000);
+    // Tambah delay lebih panjang buat server
+    await delay(5000);
 
-    const filesInRoot = fs.readdirSync(__dirname).filter(f => f.match(/^\d{2} - .*\.mp4$/));
-    console.log("Found files:", filesInRoot);
+    // Cari file mp4 yang pattern playlist
+    const files = fs.readdirSync(__dirname).filter(f => f.match(/^\d{2} - .*\.mp4$/));
+    console.log("Files to zip:", files);
 
-    if (filesInRoot.length === 0) {
-      return res.status(500).json({ error: 'Download failed, no files found' });
+    if (files.length === 0) {
+      return res.status(500).json({ error: 'Download failed or no files found' });
     }
 
-    if (!fs.existsSync(folderPath)) {
-      fs.mkdirSync(folderPath);
+    // Zip langsung
+    await zipFiles(files, zipPath);
+
+    // Hapus file video setelah zip
+    for (const file of files) {
+      fs.unlinkSync(path.join(__dirname, file));
     }
 
-    for (const file of filesInRoot) {
-      fs.renameSync(path.join(__dirname, file), path.join(folderPath, file));
-    }
-
-    const zipName = `${playlistTitle}.zip`;
-    const zipPath = path.join(__dirname, zipName);
-    await zipFolder(folderPath, zipPath);
-    console.log("Zipped to:", zipPath);
-
-    // langsung download, kalau sukses hapus
+    // Download & cleanup zip
     res.download(zipPath, zipName, (err) => {
-      if (err) {
-        console.error("Download error:", err);
-      } else {
-        console.log("Cleaning up files:", folderPath, zipPath);
-        deleteFolderRecursive(folderPath);
+      if (!err) {
         fs.unlinkSync(zipPath);
       }
     });
 
   } catch (err) {
     console.error("Error:", err);
-    res.status(500).json({ error: 'Failed to download, move or zip files' });
+    res.status(500).json({ error: 'Failed to download or zip files' });
   }
 });
 
