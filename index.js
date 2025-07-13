@@ -125,10 +125,10 @@ app.get('/download-single', async (req, res) => {
   try {
     console.log("Get title for single video:", url);
 
-    // ambil judul
+    // ambil judul video
     const { stdout: titleStdout } = await runYtdlp(url, ["--get-title"]);
     let safeTitle = titleStdout.trim()
-      .replace(/[\/\\?%*:|"<>]/g, '-')   // ganti karakter ilegal di nama file
+      .replace(/[\/\\?%*:|"<>]/g, '-')   // ganti karakter ilegal
       .substring(0, 100);                 // limit panjang nama file
     if (!safeTitle) safeTitle = `video-${Date.now()}`;
 
@@ -137,7 +137,7 @@ app.get('/download-single', async (req, res) => {
 
     console.log("Downloading as:", filename);
 
-    // download
+    // download video
     await runYtdlp(url, [
       "--output", filepath,
       "--format", "best[height<=1080]/best",
@@ -148,7 +148,8 @@ app.get('/download-single', async (req, res) => {
 
     console.log("Download done:", filepath);
 
-    res.download(filepath, (err) => {
+    // langsung download ke user & hapus file
+    res.download(filepath, filename, (err) => {
       if (!err) {
         try { fs.unlinkSync(filepath); } catch {}
         console.log("Cleaned up:", filepath);
