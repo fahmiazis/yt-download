@@ -75,7 +75,7 @@ app.get('/convert', async (req, res) => {
 
   } catch (err) {
     console.error("Error:", err);
-    res.status(500).json({ error: 'Failed to download or zip files' });
+    res.status(500).json({ error: 'Failed to download or zip files', err });
   }
 });
 
