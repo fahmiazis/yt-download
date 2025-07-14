@@ -168,24 +168,38 @@ app.get('/download-video', async (req, res) => {
   const { url, title } = req.query;
   if (!url || !title) return res.status(400).json({ error: 'Missing url or title' });
 
-  const filename = `${title}.mp4`;
   try {
+    console.log("Downloading:", title);
+
+    const formatSelector = "bestvideo[height<=1080][height>=720]+bestaudio/best[height<=720][height>=480]/best";
+
     await runYtdlp(url, [
-      "--output", filename,
-      "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]",
-      "--merge-output-format", "mp4",
-      "--no-mtime",
-      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+      "--output", `${title}.%(ext)s`,
+      "-f", formatSelector,
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+      "--no-mtime"
     ]);
 
-    await delay(2000);
+    await delay(1000);
 
-    if (!fs.existsSync(path.join(__dirname, filename))) {
-      return res.status(500).json({ error: 'Video file not found' });
+    // cek file apa yg barusan dibuat
+    const allFiles = fs.readdirSync(__dirname);
+    const downloadedFile = allFiles.find(f => f.startsWith(title));
+    console.log("Files:", allFiles, "Picked:", downloadedFile);
+
+    if (!downloadedFile) {
+      return res.status(500).json({
+        error: 'Download failed or no files found',
+        debug: { allFiles }
+      });
     }
 
-    res.download(path.join(__dirname, filename), filename, (err) => {
-      if (!err) fs.unlinkSync(path.join(__dirname, filename));
+    const filePath = path.join(__dirname, downloadedFile);
+
+    res.download(filePath, downloadedFile, (err) => {
+      if (!err) {
+        fs.unlinkSync(filePath);
+      }
     });
 
   } catch (err) {
