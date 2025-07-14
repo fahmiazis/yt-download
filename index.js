@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 const { spawn } = require('child_process');
+const ffmpegPath = require('ffmpeg-static');
 
 const app = express();
 app.use(cors())
@@ -28,7 +29,7 @@ function runYtdlp(url, args=[]) {
 
 function runFfmpeg(args) {
   return new Promise((resolve, reject) => {
-    const ff = spawn("ffmpeg", ["-y", ...args]); // -y biar auto overwrite
+    const ff = spawn(ffmpegPath, ["-y", ...args]);
     let stderr = '';
 
     ff.stderr.on('data', data => stderr += data.toString());
