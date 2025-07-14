@@ -26,6 +26,19 @@ function runYtdlp(url, args=[]) {
   });
 }
 
+function runFfmpeg(args) {
+  return new Promise((resolve, reject) => {
+    const ff = spawn("ffmpeg", ["-y", ...args]); // -y biar auto overwrite
+    let stderr = '';
+
+    ff.stderr.on('data', data => stderr += data.toString());
+    ff.on('close', code => {
+      if (code === 0) resolve();
+      else reject(`ffmpeg exited with code ${code}: ${stderr}`);
+    });
+  });
+}
+
 function zipFiles(files, zipPath) {
   return new Promise((resolve, reject) => {
     const output = fs.createWriteStream(zipPath);
@@ -205,6 +218,60 @@ app.get('/download-video', async (req, res) => {
   } catch (err) {
     console.error("Error:", err);
     res.status(500).json({ error: 'Failed to download video', err });
+  }
+});
+
+app.get('/download-mux', async (req, res) => {
+  const { url, title } = req.query;
+  if (!url || !title) return res.status(400).json({ error: 'Missing url or title' });
+
+  const safeTitle = title.replace(/[\\/:*?"<>|]/g, "_");
+  const videoFile = `${safeTitle}_video.mp4`;
+  const audioFile = `${safeTitle}_audio.m4a`;
+  const finalFile = `${safeTitle}_final.mp4`;
+
+  try {
+    console.log(`Downloading VIDEO ONLY for: ${title}`);
+
+    await runYtdlp(url, [
+      "--output", videoFile,
+      "-f", "(bestvideo[height<=1080][height>=720])[ext=mp4]/(bestvideo[height<=1080][height>=720])",
+      "--user-agent", "Mozilla/5.0",
+      "--no-mtime"
+    ]);
+
+    console.log(`Downloading AUDIO ONLY for: ${title}`);
+
+    await runYtdlp(url, [
+      "--output", audioFile,
+      "-f", "bestaudio[ext=m4a]/bestaudio",
+      "--user-agent", "Mozilla/5.0",
+      "--no-mtime"
+    ]);
+
+    console.log(`Muxing with ffmpeg...`);
+
+    await runFfmpeg([
+      "-i", videoFile,
+      "-i", audioFile,
+      "-c:v", "copy",
+      "-c:a", "aac",
+      "-strict", "experimental",
+      finalFile
+    ]);
+
+    console.log(`Sending muxed file: ${finalFile}`);
+    res.download(path.join(__dirname, finalFile), finalFile, (err) => {
+      if (!err) {
+        fs.unlinkSync(videoFile);
+        fs.unlinkSync(audioFile);
+        fs.unlinkSync(finalFile);
+      }
+    });
+
+  } catch (err) {
+    console.error("Muxing failed:", err);
+    res.status(500).json({ error: "Muxing failed", err });
   }
 });
 
