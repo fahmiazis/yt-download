@@ -171,7 +171,7 @@ app.get('/download-video', async (req, res) => {
   try {
     console.log("Downloading:", title);
 
-    const formatSelector = "bestvideo[height<=1080][height>=720]+bestaudio/best[height<=720][height>=480]/best";
+    const formatSelector = "bestvideo[height<=1080][height>=720][ext=mp4]/bestvideo[height<=1080][height>=720]/bestvideo";
 
     await runYtdlp(url, [
       "--output", `${title}.%(ext)s`,
